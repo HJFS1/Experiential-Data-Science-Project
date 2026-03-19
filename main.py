@@ -237,3 +237,6 @@ else:
             display_df[col] = display_df[col].apply(lambda x: f"£{x:,.0f}")
         st.dataframe(display_df, use_container_width=True, hide_index=True)
  
+# ─────────────────────────── FOOTER ────────────────────────────────
+st.divider()
+st.caption("Built with Streamlit · Data: Housing Price Index: Office of National Statistics ")
