@@ -109,3 +109,131 @@ with tab2:
         file_name="filtered_boroughs.csv",
         mime="text/csv",
     )
+
+# ───────────── PRICE INDEX OVER TIME ───────────────
+
+st.divider()
+st.subheader("📈 Price Index Over Time")
+st.caption("Shows growth per property type for a single borough.")
+ 
+price_cols = {
+    "Detached":      "DetachedPrice",
+    "Semi-detached": "SemiDetachedPrice",
+    "Terraced":      "TerracedPrice",
+    "Flat":          "FlatPrice",
+}
+ 
+# Controls
+ctrl_col1, ctrl_col2 = st.columns([2, 1])
+ 
+with ctrl_col1:
+    trend_borough = st.selectbox(
+        "Select borough",
+        options=sorted(df["RegionName"].unique()),
+        index=sorted(df["RegionName"].unique()).index("Tower Hamlets")
+        if "Tower Hamlets" in df["RegionName"].unique() else 0,
+    )
+ 
+with ctrl_col2:
+    available_years = sorted(df["Date"].dt.year.unique())
+    base_year = st.selectbox(
+        "Base year (index = 100)",
+        options=available_years,
+        index=available_years.index(2015) if 2015 in available_years else 0,
+    )
+ 
+# Build indexed series
+borough_df = (
+    df[df["RegionName"] == trend_borough]
+    .copy()
+    .sort_values("Date")
+)
+borough_df["Year"] = borough_df["Date"].dt.year
+annual_df = borough_df.groupby("Year")[list(price_cols.values())].mean().reset_index()
+ 
+base_row = annual_df[annual_df["Year"] == base_year]
+ 
+if base_row.empty:
+    st.warning(f"No data found for {trend_borough} in {base_year}. Choose a different base year.")
+else:
+    indexed_df = annual_df[annual_df["Year"] >= base_year].copy()
+    for label, col in price_cols.items():
+        base_val = base_row[col].values[0]
+        indexed_df[label] = (indexed_df[col] / base_val * 100).round(1)
+ 
+    latest_year  = indexed_df["Year"].max()
+    prev_year    = latest_year - 1
+    latest_row   = annual_df[annual_df["Year"] == latest_year]
+    prev_row     = annual_df[annual_df["Year"] == prev_year]
+ 
+    kpi_cols = st.columns(4)
+    for i, (label, col) in enumerate(price_cols.items()):
+        with kpi_cols[i]:
+            curr_val = latest_row[col].values[0] if not latest_row.empty else None
+            prev_val = prev_row[col].values[0]   if not prev_row.empty  else None
+            base_val = base_row[col].values[0]
+ 
+            if curr_val and prev_val:
+                yoy_delta = ((curr_val - prev_val) / prev_val * 100)
+                total_chg = ((curr_val - base_val) / base_val * 100)
+                st.metric(
+                    label=f"{label}",
+                    value=f"£{curr_val:,.0f}",
+                    delta=f"{yoy_delta:+.1f}% YoY",
+                )
+                st.caption(f"{total_chg:+.1f}% since {base_year}")
+ 
+    #Chart 
+    plot_df = indexed_df[["Year"] + list(price_cols.keys())].melt(
+        id_vars="Year",
+        var_name="Property type",
+        value_name="Index",
+    )
+ 
+    color_map = {
+        "Detached":      "#185FA5",
+        "Semi-detached": "#1D9E75",
+        "Terraced":      "#D85A30",
+        "Flat":          "#7F77DD",
+    }
+ 
+    fig_line = px.line(
+        plot_df,
+        x="Year",
+        y="Index",
+        color="Property type",
+        color_discrete_map=color_map,
+        markers=True,
+        title=f"Price index for {trend_borough}",
+        labels={"Index": f"Index ({base_year})", "Year": "Year"},
+    )
+ 
+    # Baseline reference at 100
+    fig_line.add_hline(
+        y=100,
+        line_dash="dot",
+        line_color="rgba(100,100,100,0.4)",
+        annotation_text=f"Base ({base_year})",
+        annotation_position="bottom right",
+    )
+ 
+    fig_line.update_layout(
+        hovermode="x unified",
+        xaxis=dict(tickmode="linear", dtick=1),
+        yaxis=dict(title=f"Index ({base_year} = 100)"),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+    )
+    fig_line.update_traces(line_width=2.5, marker_size=5)
+ 
+    st.plotly_chart(fig_line, use_container_width=True)
+ 
+    # Annual Averages
+    with st.expander("View annual average prices for this borough"):
+        display_df = annual_df[annual_df["Year"] >= base_year][
+            ["Year"] + list(price_cols.values())
+        ].copy()
+        display_df.columns = ["Year"] + list(price_cols.keys())
+        for col in price_cols.keys():
+            display_df[col] = display_df[col].apply(lambda x: f"£{x:,.0f}")
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+ 
