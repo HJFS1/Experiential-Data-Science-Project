@@ -47,3 +47,31 @@ if boroughs:
     filtered = df[df["RegionName"].isin(boroughs)]
 else:
     filtered = df
+
+# ─────────────────────────── TITLE ─────────────────────────────────
+st.title("📊 Housing Types average Price ")
+st.caption("Comparing average price for different housing types")
+
+# ─────────────────────────── KPI CARDS ─────────────────────────────
+# Create 4 columns for average price for each property type
+filtered = filtered[filtered["Date"].dt.year == 2025]
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    avg_detached = filtered["DetachedPrice"].mean()
+    st.metric("🏠 Detached House Price", f"£{avg_detached:,.0f}")
+
+with col2:
+    avg_semideteched = filtered["SemiDetachedPrice"].mean()
+    st.metric("🏠 Semi Detached Price", f"£{avg_semideteched:,.0f}")
+
+with col3:
+    avg_terraced = filtered["TerracedPrice"].mean()
+    st.metric("🏠 Terraced Housing Price", f"£{avg_terraced:,.0f}")
+
+with col4:
+    avg_flat = filtered["FlatPrice"].mean()
+    st.metric("🏢 Flat Price", f"£{avg_flat:,.0f}")
+
+st.divider()
