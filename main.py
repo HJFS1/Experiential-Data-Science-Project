@@ -75,3 +75,37 @@ with col4:
     st.metric("🏢 Flat Price", f"£{avg_flat:,.0f}")
 
 st.divider()
+
+# ─────────────────────────── TABS ─────────────────────────────────
+tab1, tab2 = st.tabs(["📊 Bar Chart", "📋 Data Table"])
+
+with tab1:
+    # --- Bar chart of the selected metric ---
+    mean_df = filtered.groupby("RegionName")[selected_metric].mean().reset_index()
+
+    fig_bar = px.bar(
+        mean_df.sort_values(selected_metric, ascending=False),
+        x="RegionName",
+        y=selected_metric,
+        color="RegionName",
+        title=f"Mean {selected_label} by Borough",
+        labels={"RegionName": "RegionName", selected_metric: selected_label},
+    )
+    fig_bar.update_layout(showlegend=False, xaxis_tickangle=-45)
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+with tab2:
+    # --- Raw data table ---
+    st.dataframe(
+        filtered.sort_values("RegionName"),
+        use_container_width=True,
+        hide_index=True,
+    )
+    # Download button
+    csv = filtered.to_csv(index=False)
+    st.download_button(
+        label="⬇️ Download filtered data as CSV",
+        data=csv,
+        file_name="filtered_boroughs.csv",
+        mime="text/csv",
+    )
